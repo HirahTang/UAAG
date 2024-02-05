@@ -1,0 +1,10 @@
+# Ignore anything that ends with .pkl
+
+
+```bash
+*.pdb
+*.pkl
+*.pyc
+*.out
+*.log
+```
