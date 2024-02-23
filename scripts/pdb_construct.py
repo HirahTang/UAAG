@@ -12,8 +12,16 @@ bond_type = ['UNSPECIFIED', 'SINGLE', 'DOUBLE', 'TRIPLE', 'QUADRUPLE',
  'FIVEANDAHALF', 'AROMATIC', 'IONIC', 'HYDROGEN', 'THREECENTER',
  'DATIVEONE', 'DATIVE', 'DATIVEL', 'DATIVER', 'OTHER', 'ZERO']
 BOND_DICT = dict(zip(bond_type, range(len(bond_type))))
-hybridization_type = ["UNSPECIFIED", "S", "SP", "SP2", "SP3", "SP2D", "SP3D", "SP3D2", "OTHER"]
+hybridization_type = ["UNSPECIFIED", "S", "SP", "SP2", "SP3", "SP3D", "SP3D2", "OTHER"]
 HYBRIDIZATION_DICT = dict(zip(hybridization_type, range(len(hybridization_type))))
+
+aa_dict = [
+        "Ala", "Asx", "Cys", "Asp", "Glu", "Phe", "Gly", "His", "Ile",
+        "Lys", "Leu", "Met", "Asn", "Pro", "Gln", "Arg", "Ser", "Thr",
+        "Sec", "Val", "Trp", "Xaa", "Tyr", "Glx",
+        ]
+AA_DICT = [i.upper() for i in aa_dict]
+AA_DICT = dict(zip(AA_DICT, range(len(AA_DICT))))
 
 
 ATOM_FAMILIES = ['Acceptor', 'Donor', 'Aromatic', 'Hydrophobe', 'LumpedHydrophobe', 'NegIonizable', 'PosIonizable',
@@ -238,8 +246,8 @@ def construct_pocket_dict(protein_p, res_id_ls, res_num):
     
     # Step 2: Get the atoms from res_id_ls of protein_p
     pocket_atom_index_ls = []
-    for res_num in res_id_ls:
-        _, pocket_atom_index = protein_p.get_res_by_num(res_num)
+    for pocket_res_num in res_id_ls:
+        _, pocket_atom_index = protein_p.get_res_by_num(pocket_res_num)
         pocket_atom_index_ls += pocket_atom_index
     pocket_atoms = [protein_p.atom[i] for i in pocket_atom_index_ls]
     pocket_pos = [protein_p.pos[i] for i in pocket_atom_index_ls]
@@ -251,8 +259,8 @@ def construct_pocket_dict(protein_p, res_id_ls, res_num):
     # Step 3: Construct the features for ligand atoms and protein atoms
     
     pocket_save = {
-        "protein_pos": pocket_pos,
-        "ligand_pos": ligand_pos,
+        "protein_pos": np.array(pocket_pos),
+        "ligand_pos": np.array(ligand_pos),
         "ligand_element": [i[0] for i in ligand_feature_list],
         "ligand_aromatic": [int(i[1]) for i in ligand_feature_list],
         "ligand_hybridization": [HYBRIDIZATION_DICT[str(i[2])] for i in ligand_feature_list],
@@ -262,8 +270,10 @@ def construct_pocket_dict(protein_p, res_id_ls, res_num):
         
         "protein_element": protein_element,
         "protein_is_backbone": pocket_backbone,
-        "protein_atom_to_aa_type": protein_atom_to_aa_type,
+        "protein_atom_to_aa_type": [AA_DICT[i] for i in protein_atom_to_aa_type],
         
+        "pdb_name": protein_p.pdb_file,
+        "res_num": res_num,
     }
     
     return pocket_save
