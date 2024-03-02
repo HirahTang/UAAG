@@ -7,4 +7,5 @@
 *.pyc
 *.out
 *.log
+*.pickle
 ```

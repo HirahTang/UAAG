@@ -5,6 +5,8 @@ from rdkit.Chem import ChemicalFeatures
 from rdkit import RDConfig
 import os
 import numpy as np
+import pickle
+import json
 
 bond_type = ['UNSPECIFIED', 'SINGLE', 'DOUBLE', 'TRIPLE', 'QUADRUPLE',
  'QUINTUPLE', 'HEXTUPLE',
@@ -20,6 +22,19 @@ aa_dict = [
         "Lys", "Leu", "Met", "Asn", "Pro", "Gln", "Arg", "Ser", "Thr",
         "Sec", "Val", "Trp", "Xaa", "Tyr", "Glx",
         ]
+
+#NAA_DICT = {
+#    'MSE': 25, 'HOH': 26, 'NAG': 27, 'FES': 28, ' RB':29 , 'TBA': 30
+#    }
+
+#with open(f'data/naa_amino_acid_dict.pkl', 'rb') as f:
+#    NAA_DICT = pickle.load(f)
+#    f.close()
+    
+with open('data/naa_amino_acid_dict.json', 'rb') as json_file:
+    NAA_DICT = json.load(json_file)
+    json_file.close()
+    
 AA_DICT = [i.upper() for i in aa_dict]
 AA_DICT = dict(zip(AA_DICT, range(len(AA_DICT))))
 
@@ -32,10 +47,10 @@ class protein_process:
         # Read the PDB file
         self.pdb_file = pdb_file
         self.protein = Chem.MolFromPDBFile(pdb_file)
+        
         Chem.SanitizeMol(self.protein)
-        
         self.rdmol = Chem.RemoveHs(self.protein)
-        
+
         self.rd_num_atoms = self.rdmol.GetNumAtoms()
         
         self.feat_mat = np.zeros([self.rd_num_atoms, len(ATOM_FAMILIES)], dtype=np.compat.long)
@@ -69,6 +84,8 @@ class protein_process:
         self.centre_of_res_mass = np.zeros([max(self.res_id), 3])
         self.get_centre_of_mass()
         
+        self.max_res = max(self.res_id)
+        
     def get_centre_of_mass(self):
         ptable = Chem.GetPeriodicTable()
 
@@ -94,7 +111,7 @@ class protein_process:
         # For the original res_id, the id would start over when a new chain is encountered
         # The new res_id is a continuous list of id for all the residues in the protein
         
-        res_id_new = []
+        """ res_id_new = []
         start = 0
         start_id = -1
         for res in self.res_id:
@@ -104,7 +121,9 @@ class protein_process:
                 res_id_new.append(start_id)
             else:
                 res_id_new.append(start_id)
-        self.res_id = res_id_new
+        self.res_id = res_id_new """
+        
+        self.res_id = list(range(len(self.res_id)))
         
     def get_res_by_num(self, res_num):
         bool_list = [id==res_num for id in self.res_id]
@@ -149,27 +168,36 @@ class protein_process:
         # Method 2: Get all other residues within the radius of the CENTRE of MASS of res_num
         
         elif method == 2:
-            
-            coord = self.centre_of_res_mass[res_num]
-            sel_idx = set()
-            for i, res in enumerate(self.centre_of_res_mass):
-                distance = np.linalg.norm(res - coord, ord=2)
-                if distance < radius and i not in sel_idx and i != res_num:
-                    sel_idx.add(i)
-            
-            return sel_idx
+            try:
+                if res_num < self.centre_res_mass.shape[0]:
+                    coord = self.centre_of_res_mass[res_num]
+                    sel_idx = set()
+                    for i, res in enumerate(self.centre_of_res_mass):
+
+                        distance = np.linalg.norm(res - coord, ord=2)
+                        if distance < radius and i not in sel_idx and i != res_num:
+                            sel_idx.add(i)
+                    
+                    return sel_idx
+                else:
+                    return set()
+            except:
+                return set()
         
         elif method == 3:
             # Get all other residues within the radius of the Alpha Carbon of res_num
-            atom_list = self.atom[atom_index_list[1]]
-            coord = self.pos[atom_index_list[1]]
- 
-            sel_idx = set()
-            for i, res in enumerate(self.centre_of_res_mass):
-                distance = np.linalg.norm(res - coord, ord=2)
-                if distance < radius and i not in sel_idx and i != res_num:
-                    sel_idx.add(i)
-            return sel_idx
+            try:
+                atom_list = self.atom[atom_index_list[1]]
+                coord = self.pos[atom_index_list[1]]
+    
+                sel_idx = set()
+                for i, res in enumerate(self.centre_of_res_mass):
+                    distance = np.linalg.norm(res - coord, ord=2)
+                    if distance < radius and i not in sel_idx and i != res_num:
+                        sel_idx.add(i)
+                return sel_idx
+            except:
+                return set()
         
         else:
             raise ValueError('Invalid method')
@@ -234,6 +262,7 @@ def construct_pockets(ligand, pos, protein, radius=10):
 
 
 def construct_pocket_dict(protein_p, res_id_ls, res_num):
+    
     # Step 1: Get all the atoms from res_num of protein_p
     _, ligand_index = protein_p.get_res_by_num(res_num)
     ligand_atoms = [protein_p.atom[i] for i in ligand_index]
@@ -253,8 +282,18 @@ def construct_pocket_dict(protein_p, res_id_ls, res_num):
     pocket_pos = [protein_p.pos[i] for i in pocket_atom_index_ls]
     pocket_backbone = [protein_p.is_backbone[i] for i in pocket_atom_index_ls]
     protein_element = [protein_p.atomic_num[i] for i in pocket_atom_index_ls]
-    protein_atom_to_aa_type = [protein_p.residue[i] for i in pocket_atom_index_ls]
     
+    protein_atom_to_aa_type = [protein_p.residue[i] for i in pocket_atom_index_ls]
+    protein_atom_to_aa_type_map = []
+    for ele in protein_atom_to_aa_type:
+        if ele in AA_DICT.keys():
+            protein_atom_to_aa_type_map.append(AA_DICT[ele])
+        else:
+            if ele in NAA_DICT.keys():
+                protein_atom_to_aa_type_map.append(NAA_DICT[ele])
+            else:
+                raise ValueError('Invalid residue')
+
     
     # Step 3: Construct the features for ligand atoms and protein atoms
     
@@ -270,7 +309,7 @@ def construct_pocket_dict(protein_p, res_id_ls, res_num):
         
         "protein_element": protein_element,
         "protein_is_backbone": pocket_backbone,
-        "protein_atom_to_aa_type": [AA_DICT[i] for i in protein_atom_to_aa_type],
+        "protein_atom_to_aa_type": protein_atom_to_aa_type_map,
         
         "pdb_name": protein_p.pdb_file,
         "res_num": res_num,
