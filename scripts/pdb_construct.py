@@ -24,24 +24,17 @@ aa_dict = [
          "Val", "Trp", "Tyr", "Glx",
         ]
 
-#NAA_DICT = {
-#    'MSE': 25, 'HOH': 26, 'NAG': 27, 'FES': 28, ' RB':29 , 'TBA': 30
-#    }
-
-#with open(f'data/naa_amino_acid_dict.pkl', 'rb') as f:
-#    NAA_DICT = pickle.load(f)
-#    f.close()
-    
+AA_DICT = [i.upper() for i in aa_dict]
+AA_DICT = dict(zip(AA_DICT, range(len(AA_DICT))))
 with open('data/naa_amino_acid_dict.json', 'rb') as json_file:
     NAA_DICT = json.load(json_file)
     json_file.close()
     
-AA_DICT = [i.upper() for i in aa_dict]
-AA_DICT = dict(zip(AA_DICT, range(len(AA_DICT))))
-
-
 ATOM_FAMILIES = ['Acceptor', 'Donor', 'Aromatic', 'Hydrophobe', 'LumpedHydrophobe', 'NegIonizable', 'PosIonizable',
                  'ZnBinder']
+NAA_DICT = dict(zip(NAA_DICT, range(22, 22+len(NAA_DICT))))
+AA_DICT.update(NAA_DICT)
+
 
 class protein_process:
     def __init__(self, pdb_file, retrieve_feat_mat = False):
