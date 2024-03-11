@@ -1,0 +1,1 @@
+python pdb_clean.py --pdb_dir /home/qcx679/hantang/UAAG/data/pdb --cleaned_dir /home/qcx679/hantang/UAAG/data/pdb_processed

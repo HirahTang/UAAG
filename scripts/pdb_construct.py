@@ -1,4 +1,5 @@
 from Bio.PDB import PDBParser
+from Bio.PDB import Selection
 from rdkit import Chem
 from rdkit.Chem.rdchem import BondType
 from rdkit.Chem import ChemicalFeatures
@@ -20,7 +21,7 @@ HYBRIDIZATION_DICT = dict(zip(hybridization_type, range(len(hybridization_type))
 aa_dict = [
         "Ala", "Asx", "Cys", "Asp", "Glu", "Phe", "Gly", "His", "Ile",
         "Lys", "Leu", "Met", "Asn", "Pro", "Gln", "Arg", "Ser", "Thr",
-        "Sec", "Val", "Trp", "Xaa", "Tyr", "Glx",
+         "Val", "Trp", "Tyr", "Glx",
         ]
 
 #NAA_DICT = {
@@ -168,21 +169,20 @@ class protein_process:
         # Method 2: Get all other residues within the radius of the CENTRE of MASS of res_num
         
         elif method == 2:
-            try:
-                if res_num < self.centre_res_mass.shape[0]:
-                    coord = self.centre_of_res_mass[res_num]
-                    sel_idx = set()
-                    for i, res in enumerate(self.centre_of_res_mass):
+            sel_idx = set()
+            if res_num < self.centre_res_mass.shape[0]:
+                coord = self.centre_of_res_mass[res_num]
+                
+                for i, res in enumerate(self.centre_of_res_mass):
 
-                        distance = np.linalg.norm(res - coord, ord=2)
-                        if distance < radius and i not in sel_idx and i != res_num:
-                            sel_idx.add(i)
-                    
-                    return sel_idx
-                else:
-                    return set()
-            except:
-                return set()
+                    distance = np.linalg.norm(res - coord, ord=2)
+                    if distance < radius and i not in sel_idx and i != res_num:
+                        sel_idx.add(i)
+                
+                return sel_idx
+            else:
+                return sel_idx
+            
         
         elif method == 3:
             # Get all other residues within the radius of the Alpha Carbon of res_num
@@ -201,6 +201,114 @@ class protein_process:
         
         else:
             raise ValueError('Invalid method')
+        
+     
+class protein_process_biopython:
+    def __init__(self, pdb_file, parser=PDBParser()):
+        """
+        Class to Define a biopython object, for the convenience of defining pockets
+        -----
+        INPUT: PBD file directory
+        OUTPUT: protein_process_biopython object
+            Attributes:
+            self.res_id* = [num_res]: id with the length of num_res, starting from 0 to num_res-1,
+            self.aa_type* = [num_res]: aa_type for the residues (Encoded by AA_DICT)
+            self.mass_centre* = [num_res, 3]: mass centre for the residues
+            self.atom_id* = [num_atom]: id with the length of atom, starting from 0 to num_atom
+            self.atom_to_res* = [num_atom]: id with the length of atom, a mapping of atom_id to res_id
+            self.atom_type* = [num_atom]: atom_type for the atoms
+            self.atom_to_aa* = [num_atom]: the residue type of the atom
+            self.atom_pos* = [num_atom, 3]: 3D position of the atom
+            self.res* = [num_res]: A list of biopython.residue objects (Exclude the non-standard objects)
+        """
+        self.pdb_name = pdb_file.split('/')[-1].split('.')[0]
+        try:
+            self.pdb = parser.get_structure(self.pdb_name, pdb_file)
+        except:
+            # Defne a value error for fail to load pdb
+            raise ValueError("Fail to Load PDB") 
+        # Get the first model of the PDB
+        self.pdb = self.pdb[0]
+
+        self.atom_type = []
+        self.atom_to_res = []
+        self.atom_to_aa = []
+        self.atom_pos = []
+        self.ptable = Chem.GetPeriodicTable()
+        self.mass_centre = []
+        
+        self.get_all_res()
+        
+    def get_centre_of_mass(self, centre_mass, centre_pos):
+        accum_pos, accum_mass = 0, 0
+        for atom_w, atom_p in zip(centre_mass, centre_pos):
+            accum_pos += atom_w * atom_p
+            accum_mass += atom_w
+        centre_of_mass = accum_pos/accum_mass
+        return centre_of_mass
+    
+    def get_all_res(self):
+        self.res = Selection.unfold_entities(self.pdb, "R")
+        self.res = [residue for residue in self.res if residue.get_resname() in AA_DICT]
+        self.res_id = list(range(len(self.res)))
+        self.aa_type = [AA_DICT[residue.get_resname()] for residue in self.res]
+        for residue_id in self.res_id:
+            centre_pos = []
+            centre_mass = []
+            for atom in self.res[residue_id]:
+                self.atom_type.append(self.ptable.GetAtomicNumber(atom.element))
+                self.atom_to_res.append(residue_id)
+                self.atom_to_aa.append(self.aa_type[residue_id])
+                self.atom_pos.append(atom.get_coord())
+                centre_mass.append(self.ptable.GetAtomicWeight(atom.element))
+                centre_pos.append(atom.get_coord())
+            self.mass_centre.append(self.get_centre_of_mass(centre_mass, centre_pos))
+        self.atom_id = list(range(len(self.atom_type)))
+        self.atom_pos = np.array(self.atom_pos)
+        
+    def get_pocket(self, pocket_res_id, centre_mass=True, radius=10):
+        if centre_mass:
+            centre_mass_pos = self.mass_centre[pocket_res_id]
+        else:
+            raise ValueError('Undefined Centre Mass')
+        sel_idx = set()
+        for i, res_mass_centre in enumerate(self.mass_centre):
+            distance = np.linalg.norm(res_mass_centre - centre_mass_pos, ord=2)
+            if distance < radius and i not in sel_idx and i != pocket_res_id:
+                sel_idx.add(i)
+        return sel_idx
+    
+    def construct_pocket(self, res_id):
+        
+        pocket_res_id = self.get_pocket(res_id)
+    #    print(pocket_res_id)
+        pocket_atom_id = [i for i in range(len(self.atom_to_res)) if self.atom_to_res[i] in pocket_res_id]
+        ligand_atom_id = [i for i in range(len(self.atom_to_res)) if self.atom_to_res[i] == res_id]
+        output = (res_id, 
+            {
+                "pocket_atom_type": np.array(self.atom_type)[pocket_atom_id],
+                "pocket_atom_to_aa": np.array(self.atom_to_aa)[pocket_atom_id],
+                "pocket_atom_pos": self.atom_pos[pocket_atom_id],
+                "ligand_atom_type": np.array(self.atom_type)[ligand_atom_id],
+                "ligand_atom_pos": self.atom_pos[ligand_atom_id]
+            }
+        )
+        
+        return output
+        
+        
+        
+    def get_full_pocket(self):
+        output_full = {}
+        for residue in self.res_id:
+            residue_id, features = self.construct_pocket(residue)
+            residue_id = self.pdb_name + str(residue_id)
+            output_full[residue_id] = features
+            
+        return output_full
+            
+
+        
         
         
         
@@ -316,3 +424,4 @@ def construct_pocket_dict(protein_p, res_id_ls, res_num):
     }
     
     return pocket_save
+
