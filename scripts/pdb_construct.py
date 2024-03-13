@@ -18,22 +18,25 @@ BOND_DICT = dict(zip(bond_type, range(len(bond_type))))
 hybridization_type = ["UNSPECIFIED", "S", "SP", "SP2", "SP3", "SP3D", "SP3D2", "OTHER"]
 HYBRIDIZATION_DICT = dict(zip(hybridization_type, range(len(hybridization_type))))
 
-aa_dict = [
-        "Ala", "Asx", "Cys", "Asp", "Glu", "Phe", "Gly", "His", "Ile",
-        "Lys", "Leu", "Met", "Asn", "Pro", "Gln", "Arg", "Ser", "Thr",
-         "Val", "Trp", "Tyr", "Glx",
-        ]
+def obtain_aa():
+    aa_dict = [
+            "Ala", "Asx", "Cys", "Asp", "Glu", "Phe", "Gly", "His", "Ile",
+            "Lys", "Leu", "Met", "Asn", "Pro", "Gln", "Arg", "Ser", "Thr",
+            "Val", "Trp", "Tyr", "Glx",
+            ]
 
-AA_DICT = [i.upper() for i in aa_dict]
-AA_DICT = dict(zip(AA_DICT, range(len(AA_DICT))))
-with open('data/naa_amino_acid_dict.json', 'rb') as json_file:
-    NAA_DICT = json.load(json_file)
-    json_file.close()
-    
-ATOM_FAMILIES = ['Acceptor', 'Donor', 'Aromatic', 'Hydrophobe', 'LumpedHydrophobe', 'NegIonizable', 'PosIonizable',
-                 'ZnBinder']
-NAA_DICT = dict(zip(NAA_DICT, range(22, 22+len(NAA_DICT))))
-AA_DICT.update(NAA_DICT)
+    AA_DICT = [i.upper() for i in aa_dict]
+    AA_DICT = dict(zip(AA_DICT, range(len(AA_DICT))))
+    with open('data/naa_amino_acid_dict.json', 'rb') as json_file:
+        NAA_DICT = json.load(json_file)
+        json_file.close()
+        
+    ATOM_FAMILIES = ['Acceptor', 'Donor', 'Aromatic', 'Hydrophobe', 'LumpedHydrophobe', 'NegIonizable', 'PosIonizable',
+                    'ZnBinder']
+    NAA_DICT = dict(zip(NAA_DICT, range(22, 22+len(NAA_DICT))))
+    AA_DICT.update(NAA_DICT)
+    return AA_DICT
+AA_DICT = obtain_aa()
 
 
 class protein_process:
@@ -249,7 +252,10 @@ class protein_process_biopython:
             centre_pos = []
             centre_mass = []
             for atom in self.res[residue_id]:
-                self.atom_type.append(self.ptable.GetAtomicNumber(atom.element))
+                try:
+                    self.atom_type.append(self.ptable.GetAtomicNumber(atom.element))
+                except:
+                    continue
                 self.atom_to_res.append(residue_id)
                 self.atom_to_aa.append(self.aa_type[residue_id])
                 self.atom_pos.append(atom.get_coord())
@@ -283,7 +289,8 @@ class protein_process_biopython:
                 "pocket_atom_to_aa": np.array(self.atom_to_aa)[pocket_atom_id],
                 "pocket_atom_pos": self.atom_pos[pocket_atom_id],
                 "ligand_atom_type": np.array(self.atom_type)[ligand_atom_id],
-                "ligand_atom_pos": self.atom_pos[ligand_atom_id]
+                "ligand_atom_pos": self.atom_pos[ligand_atom_id],
+                "ligand_aa": self.aa_type[res_id],
             }
         )
         

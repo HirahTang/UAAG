@@ -21,7 +21,7 @@ def main(args):
         pdb_process_path = os.path.join(args.cleaned_dir, pdb_cleaned)
         print(f'running {pdb}')
         try:
-            subprocess.run(f'pdb_delhetatm {pdb_orig_path} | pdb_tidy > {pdb_process_path}', check=True, text=True, shell=True)
+            subprocess.run(f'pdb_delhetatm {pdb_orig_path} | pdb_delelem -H | pdb_tidy > {pdb_process_path}', check=True, text=True, shell=True)
         except:
             continue
         

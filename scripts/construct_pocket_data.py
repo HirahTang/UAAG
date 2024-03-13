@@ -6,6 +6,7 @@ import pickle
 from tqdm import tqdm
 import argparse
 import json
+import numpy as np
 
 pdb_file_list = os.listdir('data/pdb/')
 
@@ -50,16 +51,33 @@ class NumpyEncoder(json.JSONEncoder):
 def create_pocket_new(protein_dir, radius=10):
     output_data = {}
     pdb_file_list = os.listdir(protein_dir)
-    for pdb_file in tqdm(pdb_file_list):
-        pdb_path = os.path.join(protein_dir, pdb_file)
-        pdb = protein_process_biopython(pdb_path)
-        pocket_data = pdb.get_full_pocket()
-        output_data.update(pocket_data)
-    # save pocket_save_test to json
-    with open('data/uaag_data.json', 'w') as json_file:
-        json.dump(output_data, json_file, cls=NumpyEncoder)
-        json_file.close()
-
+    if args.size > 0:
+        for pdb_file in tqdm(pdb_file_list[:args.size]):
+            pdb_path = os.path.join(protein_dir, pdb_file)
+            try:
+                pdb = protein_process_biopython(pdb_path)
+            except:
+                continue
+            pocket_data = pdb.get_full_pocket()
+            output_data.update(pocket_data)
+        # save pocket_save_test to json
+        with open(f'data/uaag_data_{args.output}.json', 'w') as json_file:
+            json.dump(output_data, json_file, cls=NumpyEncoder)
+            json_file.close()
+    else:
+        for pdb_file in tqdm(pdb_file_list):
+            pdb_path = os.path.join(protein_dir, pdb_file)
+            try:
+                pdb = protein_process_biopython(pdb_path)
+            except:
+                continue
+            pocket_data = pdb.get_full_pocket()
+            output_data.update(pocket_data)
+        # save pocket_save_test to json
+        with open(f'data/uaag_data_full.json', 'w') as json_file:
+            json.dump(output_data, json_file, cls=NumpyEncoder)
+            json_file.close()
+            
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Create pocket data')
     parser.add_argument('--protein_dir', type=str, default='data/pdb_processed/', help='Directory containing protein pdb files')
@@ -67,6 +85,8 @@ if __name__ == "__main__":
     parser.add_argument('--method', type=int, default=3, help='Method of pocket construction')
     parser.add_argument('--gen_number', type=int, default=0, help='Number of proteins to generate pocket data for')
     parser.add_argument('--gen_start', type=int, default=0, help='Start index of proteins to generate pocket data for')
+    parser.add_argument('--output', type=str, default='full', help='Output file name')
+    parser.add_argument('--size', type=int, default=0, help='Generated Data Size, 0 for all PDBs in protein_dir')
     args = parser.parse_args()
     create_pocket_new(args.protein_dir)
 #    create_pocket(args.protein_dir, args.radius, args.method, args.gen_number, args.gen_start)
