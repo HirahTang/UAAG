@@ -143,3 +143,12 @@ def obtain_histogram(data_path):
             histogram[i] = 1
     return histogram
     
+def obtain_one_hot_nd_charge(data_path):
+    uaag_data = UAAGDataset(data_path)
+    charges = set()
+    for name in uaag_data:
+        charges = charges.union(set(name['ligand_atom_type']))
+        charges = charges.union(set(name['pocket_atom_type']))
+        
+    charges = list(charges)
+    return charges
