@@ -3,15 +3,22 @@ import json
 import torch
 import os
 
+
+
 class UAAGDataset(Dataset):
     def __init__(self, data_path):
+        
+        self.one_hot = {6: 0, 7: 1, 8: 2, 16: 3}
         
         uaag_data = json.load(open(data_path, 'rb'))
         for name in uaag_data:
             uaag_data[name]['index'] = name
         
         self.data = []
+        
         for sample in list(uaag_data.values()):
+            sample['ligand_one_hot'] = self.one_hot_encoder(sample['ligand_atom_type'])
+            sample['pocket_one_hot'] = self.one_hot_encoder(sample['pocket_atom_type'])
             # Discard the amino acid with less than 5 atoms (only if it's a glycine, which has 4 atoms)
             if len(sample['ligand_atom_type']) > 4:
                 self.data.append(sample)
@@ -20,7 +27,18 @@ class UAAGDataset(Dataset):
                 
             else:
                 continue
+            
         
+    def one_hot_encoder(self, atom_type):
+        """
+        One hot encode atom type
+        """
+        
+        atom_type = torch.tensor(atom_type).unsqueeze(1).apply_(lambda x: self.one_hot[x])
+    #    atom_type = torch.tensor(atom_type).unsqueeze(1)
+
+        return torch.nn.functional.one_hot(atom_type, num_classes = len(self.one_hot))
+    
     def __len__(self):
         return len(self.data)
     
@@ -83,7 +101,8 @@ def drop_zeros(props, to_keep):
         return props[:, to_keep, ...]
 
 def collate_fn(batch):
-    batch = {key: batch_stack([torch.tensor(sample[key]) for sample in batch]) for key in ['ligand_atom_type', 'ligand_atom_pos']}
+    
+    batch = {key: batch_stack([torch.tensor(sample[key]) for sample in batch]) for key in ['ligand_atom_type', 'ligand_atom_pos', 'ligand_one_hot']}
     
     to_keep = batch['ligand_atom_type'].sum(0) > 0
     

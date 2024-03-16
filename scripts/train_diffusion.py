@@ -1,3 +1,5 @@
+import sys
+sys.path.append('.')
 from rdkit import Chem
 import json
 import numpy as np
@@ -6,8 +8,7 @@ from train_test import train_epoch
 import argparse
 import os
 import shutil
-import sys
-sys.path.append('.')
+
 import numpy as np
 import torch
 import wandb
@@ -26,16 +27,19 @@ def main(args):
         wandb.login()
         wandb.init(project="UAAG")
         wandb.config.update(args)
-        
+    
+    print("Loading Dataloader")
+    
     train_loader, val_loader, test_loader = retrieve_dataloader(args)
     
+    print("Dataloader Setup")
     # Define the model (EGNN Flow)
     
     # Retrieve Dataloader
     # Define the dataloader for Protein, and amino acids
 
     # Define the Dataloader
-    model, node_dist = get_model(args, device, train_loader)
+    model, node_dist = get_model(args, device)
     
     model = model.to(device)
     
@@ -46,8 +50,10 @@ def main(args):
     
     for epoch in range(args.start_epoch, args.n_epochs):
         start_epoch = time.time()
-        train_epoch()
-    
+        train_epoch(args, train_loader, epoch, model, device, dtype, optim, node_dist)
+        print(f"Epoch took {time.time() - start_epoch:.1f} seconds.")
+        
+        
 if __name__ == '__main__':
     
     parser = argparse.ArgumentParser()
@@ -58,8 +64,8 @@ if __name__ == '__main__':
     parser.add_argument('--n_epochs', type=int, default=200)
     parser.add_argument('--start_epoch', type=int, default=0,
                     help='')
-    
-    parser.add_argument('--no_wandb', action="store_false", help="Disable wandb logging")
+    parser.add_argument('--n_report_steps', type=int, default=1, help="reprt loss steps")
+    parser.add_argument('--no_wandb', type=int, default=0, help="wandb setup")
     parser.add_argument('--no_cuda', action="store_false", help="Disable CUDA")
     parser.add_argument('--batch_size', type=int, default=128, help="Batch size")
     parser.add_argument('--num_workers', type=int, default=0, help="Number of workers")
@@ -80,6 +86,7 @@ if __name__ == '__main__':
     parser.add_argument('--normalize_factors', type=eval, default=[1, 4, 1],
                     help='normalize factors for [x, categorical, integer]')
     # EGNN args -->
+    parser.add_argument('--ode_regularization', type=float, default=1e-3)
     parser.add_argument('--n_layers', type=int, default=6,
                         help='number of layers')
     parser.add_argument('--inv_sublayers', type=int, default=1,
