@@ -4,5 +4,5 @@
 #SBATCH --partition=gpu
 #SBATCH --gpus-per-node=1
 #SBATCH --time=10-00:05:00
-#SBATCH --output=UAAG2.out
-python scripts/train_diffusion.py --no_wandb 0 --data_path data/uaag_data_tiny.json
+#SBATCH --output=UAAG3.out
+python scripts/train_diffusion.py --no_wandb 0 --data_path data/uaag_data_tiny.json > UAAG3.log
