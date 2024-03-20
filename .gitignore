@@ -8,4 +8,5 @@
 *.out
 *.log
 *.pickle
+*.mol
 ```

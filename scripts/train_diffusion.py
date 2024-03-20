@@ -87,7 +87,7 @@ def main(args):
     
     if not args.no_wandb:
         wandb.login()
-        wandb.init(project="UAAG")
+        wandb.init(project="UAAG", name=args.exp_name)
         wandb.config.update(args)
     
     print("Loading Dataloader")
@@ -126,12 +126,18 @@ def main(args):
             
             mol_list, MolBlock_list = molecule_visualize(random_mol_list)
             print(mol_list)
+            print(MolBlock_list)
             # Test the model
             nll_val = test(args, val_loader, epoch, model, device, dtype, node_dist, partition='Val')
             nll_test = test(args, test_loader, epoch, model, device, dtype, node_dist, partition='Test')
             
+            
+            # Check if the path exists, create the directory if not
+            if not os.path.exists(f'outputs/{args.exp_name}'):
+                os.makedirs(f'outputs/{args.exp_name}')
+            
             for mol_idx in range(len(MolBlock_list)):
-                with open(f'outputs/{args.exp_name}_sampled_mol_{epoch}_{mol_idx}.mol', 'w') as f:
+                with open(f'outputs/{args.exp_name}/sampled_mol_{epoch}_{mol_idx}.mol', 'w') as f:
                     f.write(MolBlock_list[mol_idx])
             
             if nll_val < best_nll_val:
